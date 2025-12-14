@@ -22,6 +22,8 @@ export interface GitHubUser {
   repos_url: string;
 }
 
+export type GitHubUserPreview = Pick<GitHubUser,"avatar_url"|"name"|"login"|"html_url">
+
 export interface Repository {
   id: number;
   name: string;
@@ -31,4 +33,26 @@ export interface Repository {
   language: string | null;
   stargazers_count: number;
   forks_count: number;
+}
+
+export interface ContributionDay {
+  contributionCount: number;
+  date: string;
+  weekday: number;
+}
+
+export interface GitHubStats {
+  totalCommits: number;
+  totalPRs: number;
+  totalIssues: number;
+  totalRepos: number;
+  totalStars: number;
+  totalForks: number;
+  contributions: ContributionDay[];
+}
+
+export type Feature = {
+  name: string;
+  description: string;
+  icon: string;
 }

@@ -1,40 +1,17 @@
-import type { Metadata } from "next";
-import "./globals.css";
-import { ThemeProvider } from "@/providers/theme-provider";
-import { Navbar } from "@/components/main/Header";
-import Footer from "@/components/mvpblocks/Footer";
+import UserPage from "@/components/main/UserPage";
+import { Metadata } from "next";
 
-
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export default function User() {
+  
   return (
-    <>
-      <html lang="en" suppressHydrationWarning>
-        <head />
-        <body>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="system"
-            enableSystem
-            disableTransitionOnChange
-          >
-            <Navbar />
-            {children}
-            <Footer/>
-          </ThemeProvider>
-        </body>
-      </html>
-    </>
-  );
+    <UserPage username="MortadhaHouch"/>
+  )
 }
 interface UserPageProps {
-  params: { username: string };
+  params: Promise<{ username?: string }>;
 }
 export async function generateMetadata({ params }: UserPageProps): Promise<Metadata> {
-  const username = params.username;
+  const username = (await params).username;
   
   return {
     title: `${username} | GitHub Profile Stats | GitStat`,

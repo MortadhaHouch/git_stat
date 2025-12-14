@@ -7,22 +7,8 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { MdWarning } from 'react-icons/md';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { type GitHubStats } from '@/utils/types';
 
-interface ContributionDay {
-  contributionCount: number;
-  date: string;
-  weekday: number;
-}
-
-interface GitHubStats {
-  totalCommits: number;
-  totalPRs: number;
-  totalIssues: number;
-  totalRepos: number;
-  totalStars: number;
-  totalForks: number;
-  contributions: ContributionDay[];
-}
 
 export function GitHubStats({ username = 'MortadhaHouch' }: { username?: string }) {
   const [stats, setStats] = useState<GitHubStats | null>(null);

@@ -1,16 +1,27 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { 
   FaGithub, FaMapMarkerAlt, FaTwitter, FaBuilding, FaUserFriends, 
-  FaCodeBranch, FaStar, FaCode, FaFolder 
+  FaCodeBranch, FaStar, FaCode, FaFolder, 
+  FaLinkedin,
+  FaShareAlt
 } from 'react-icons/fa';
 import { FiMail } from 'react-icons/fi';
 import Link from 'next/link';
 import { Card, CardContent } from "@/components/ui/card";
-import { GitHubUser, Repository } from '../../../utils/types';
+import { GitHubUser,Repository } from '@/utils/types';
+import { notFound, usePathname } from 'next/navigation';
+import { Button } from '../ui/button';
+import QRCode from 'react-qr-code';
+import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '../ui/dialog';
+import { ChevronDown, QrCode, X } from 'lucide-react';
+import { Input } from '../ui/input';
+import ReadmePreview from './ReadmePreview';
+import fetchData from '@/utils/fetchData';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../ui/collapsible';
 
 const GithubProfile = ({ username = 'MortadhaHouch' }: { username?: string }) => {
   const [userData, setUserData] = useState<GitHubUser | null>(null);
@@ -18,52 +29,98 @@ const GithubProfile = ({ username = 'MortadhaHouch' }: { username?: string }) =>
   const [starredCount, setStarredCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const pathname = usePathname();
+  // In GithubProfile.tsx
+const [readme, setReadme] = useState<string>('');
+const [isReadmeLoading, setIsReadmeLoading] = useState(false);
+const [readmeError, setReadmeError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchGitHubData = async () => {
-      try {
-        setIsLoading(true);
-        
-        // User Data
-        const userResponse = await fetch(`https://api.github.com/users/${username}`);
-        if (!userResponse.ok) throw new Error('Failed to fetch GitHub user data');
-        const userData: GitHubUser = await userResponse.json();
-        setUserData(userData);
-
-        // Repositories
-        const reposResponse = await fetch(`https://api.github.com/users/${username}/repos`);
-        if (!reposResponse.ok) throw new Error('Failed to fetch repositories');
-        const repos: Repository[] = await reposResponse.json();
-        const sortedRepos = repos
-          .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
-          .slice(0, 6);
-        setRecentRepos(sortedRepos);
-
-        // Starred Count
-        const starredResponse = await fetch(`https://api.github.com/users/${username}/starred?per_page=1`);
-        if (starredResponse.headers.has('link')) {
-          const linkHeader = starredResponse.headers.get('link');
-          const match = linkHeader?.match(/&page=(\d+)>; rel="last"/);
-          setStarredCount(match ? parseInt(match[1], 10) : 0);
-        } else {
-          const starredData = await starredResponse.json();
-          setStarredCount(starredData.length);
+// Fetch README separately
+const fetchReadme = useCallback(async (username: string) => {
+  if (!username) return;
+  
+  setIsReadmeLoading(true);
+  setReadmeError(null);
+  
+  try {
+    const readmeResponse = await fetch(
+      `https://api.github.com/repos/${username}/${username}/readme`,
+      {
+        headers: {
+          Accept: "application/vnd.github.raw"
         }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'An error occurred');
-      } finally {
-        setIsLoading(false);
       }
-    };
+    )
+    const readme = await readmeResponse.text();
+    setReadme(readme);
+  } catch (error) {
+    console.log('No README found or error fetching README:', error);
+    setReadmeError('No README available');
+    setReadme('');
+  } finally {
+    setIsReadmeLoading(false);
+  }
+}, []);
 
-    fetchGitHubData();
-  }, [username]);
+useEffect(() => {
+  const fetchGitHubData = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Fetch main data in parallel
+      const [userResponse, reposResponse, starredResponse] = await Promise.all([
+        fetchData<GitHubUser>(`https://api.github.com/users/${username}`),
+        fetchData<Repository[]>(`https://api.github.com/users/${username}/repos`),
+        fetchData<any[]>(`https://api.github.com/users/${username}/starred?per_page=1`, {
+          // We need the headers for the link header
+          headers: {
+            'Accept': 'application/vnd.github.v3+json'
+          }
+        })
+      ]);
+
+      // Set user data
+      setUserData(userResponse);
+
+      // Set repositories
+      const sortedRepos = reposResponse
+        .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+        .slice(0, 6);
+      setRecentRepos(sortedRepos);
+
+      // Handle starred count
+      const linkHeader = starredResponse?.headers?.get('link');
+      if (linkHeader) {
+        const match = linkHeader.match(/&page=(\d+)>; rel="last"/);
+        if (match) {
+          setStarredCount(parseInt(match[1], 10));
+        }
+      } else {
+        setStarredCount(starredResponse?.length || 0);
+      }
+
+      // Fetch README in parallel after main data is loaded
+      fetchReadme(username);
+
+    } catch (error) {
+      console.error('Error fetching GitHub data:', error);
+      setError('Failed to load profile data. Please try again later.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  fetchGitHubData();
+}, [username, fetchReadme]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return new Intl.DateTimeFormat('en-US', { year: 'numeric', month: 'short', day: 'numeric' }).format(date);
   };
 
+  const handleCopyURL = useCallback(async() => {
+    await navigator.clipboard.writeText(`${window.location.origin}${pathname}`);
+  }, [pathname]);
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -73,11 +130,7 @@ const GithubProfile = ({ username = 'MortadhaHouch' }: { username?: string }) =>
   }
 
   if (error || !userData) {
-    return (
-      <div className="text-center py-8 text-red-500">
-        Error: {error || 'Failed to load GitHub profile'}
-      </div>
-    );
+    return notFound();
   }
 
   const stats = [
@@ -87,13 +140,12 @@ const GithubProfile = ({ username = 'MortadhaHouch' }: { username?: string }) =>
     { label: 'Following', value: userData.following, icon: <FaUserFriends className="mr-1 w-8 h-8" />,gradient: "from-blue-400 to-blue-600", },
     { label: 'Starred', value: starredCount, icon: <FaStar className="mr-1 w-8 h-8" />,gradient: "from-amber-400 to-amber-600" },
   ];
-
   return (
     <motion.section 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6 }}
-      className="py-16 bg-gray-50 dark:bg-gray-950"
+      className="py-16 bg-gray-50 dark:bg-gray-950 flex flex-col gap-2 items-center justify-center"
     >
       <div className="container mx-auto px-6 max-w-6xl">
         <h2 className="text-4xl font-bold text-center mb-12 text-gray-900 dark:text-white">
@@ -212,8 +264,80 @@ const GithubProfile = ({ username = 'MortadhaHouch' }: { username?: string }) =>
               View All Repositories <FaGithub className="ml-2" />
             </Link>
           </div>
+          <div>
+            <h2 className="text-xl font-semibold mb-4 flex flex-col justify-center items-center gap-4 mt-10">Share Profile</h2>
+            <div className="flex justify-center space-x-4">
+              <Button className="p-3 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-colors">
+                <FaTwitter className="h-5 w-5" />
+              </Button>
+              <Button className="p-3 bg-blue-800 text-white rounded-full hover:bg-blue-900 transition-colors">
+                <FaLinkedin className="h-5 w-5" />
+              </Button>
+              <Button className="p-3 bg-gray-800 text-white rounded-full hover:bg-gray-900 transition-colors">
+                <FaShareAlt className="h-5 w-5" />
+              </Button>
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button>
+                    <QrCode className="h-5 w-5" />
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Profile QR Code</DialogTitle>
+                  </DialogHeader>
+                  <div className="flex flex-col justify-center items-center gap-4">
+                    <QRCode value={`${window.location.origin}${pathname}`} size={200} />
+                    <div className="flex flex-row gap-2 w-full">
+                      <Input disabled readOnly value={`${window.location.origin}${pathname}`} className="flex-1" />
+                      <Button variant="ghost" onClick={()=>handleCopyURL()}>
+                        Copy URL
+                      </Button>
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <DialogClose className="flex justify-center items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-700 transition-colors">
+                      <X className="h-4 w-4" />
+                      <span>Close</span>
+                    </DialogClose>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
+          </div>
         </div>
       </div>
+      {
+        isReadmeLoading ? (
+          <div className="flex items-center justify-center h-screen">
+            <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
+          </div>
+        ) : (
+          // In GithubProfile.tsx
+          <Collapsible className="w-full max-w-7xl">
+            <div className="flex items-center justify-center w-full mb-4">
+              <CollapsibleTrigger asChild>
+                <Button 
+                  variant="outline" 
+                  className="flex items-center gap-2 group"
+                >
+                  <span>View README</span>
+                  <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                </Button>
+              </CollapsibleTrigger>
+            </div>
+            
+            <CollapsibleContent className="w-full">
+              <ReadmePreview 
+                content={readme}
+                isLoading={isReadmeLoading}
+                error={readmeError}
+                className="mt-4"
+              />
+            </CollapsibleContent>
+          </Collapsible>
+        )
+      }
     </motion.section>
   );
 };
@@ -231,11 +355,11 @@ function StatsCards({ stats }: { stats: StarCard[] }) {
           key={i} 
           className="relative overflow-hidden rounded-2xl shadow-md transition-transform duration-300 hover:scale-105"
         >
-          <div className={`absolute inset-0 bg-gradient-to-r ${stat.gradient} opacity-20`} />
+          <div className={`absolute inset-0 bg-linear-to-r ${stat.gradient} opacity-20`} />
           <CardContent className="relative p-6 flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-slate-600 dark:text-slate-200">{stat.label}</p>
-              <h2 className="text-3xl font-bold bg-gradient-to-r from-slate-800 to-slate-900 bg-clip-text text-transparent dark:from-slate-200 dark:to-slate-400">
+              <h2 className="text-3xl font-bold bg-linear-to-r from-slate-800 to-slate-900 bg-clip-text text-transparent dark:from-slate-200 dark:to-slate-400">
                 {stat.value}
               </h2>
             </div>
