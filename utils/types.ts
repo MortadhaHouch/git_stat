@@ -22,7 +22,7 @@ export interface GitHubUser {
   repos_url: string;
 }
 
-export type GitHubUserPreview = Pick<GitHubUser,"avatar_url"|"name"|"login"|"html_url">
+export type GitHubUserPreview = Pick<GitHubUser,"avatar_url"|"name"|"login"|"html_url"|"id">
 
 export interface Repository {
   id: number;
@@ -55,4 +55,10 @@ export type Feature = {
   name: string;
   description: string;
   icon: string;
+}
+
+export interface GitHubSearchResponse {
+  items: GitHubUserPreview[];
+  total_count: number;
+  incomplete_results: boolean;
 }

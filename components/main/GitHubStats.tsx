@@ -244,36 +244,79 @@ const fetchGitHubData = useCallback(async () => {
                 }))}
                 margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
               >
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                <defs>
+                  <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.8} />
+                    <stop offset="50%" stopColor="#7c3aed" stopOpacity={0.6} />
+                    <stop offset="100%" stopColor="#6d28d9" stopOpacity={0.4} />
+                  </linearGradient>
+                  <linearGradient id="barGradientHover" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#a78bfa" stopOpacity={0.9} />
+                    <stop offset="50%" stopColor="#8b5cf6" stopOpacity={0.7} />
+                    <stop offset="100%" stopColor="#7c3aed" stopOpacity={0.5} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid 
+                  strokeDasharray="3 3" 
+                  vertical={false} 
+                  stroke="hsl(var(--muted-foreground) / 0.2)" 
+                  className="dark:opacity-20"
+                />
                 <XAxis 
                   dataKey="date" 
-                  tick={{ fontSize: 12 }}
+                  tick={{ 
+                    fontSize: 12, 
+                    fill: 'hsl(var(--muted-foreground))',
+                    fontWeight: 500
+                  }}
                   tickLine={false}
                   axisLine={false}
                   interval={Math.floor(stats?.contributions.length / 5) || 1}
                 />
                 <YAxis 
-                  tick={{ fontSize: 12 }}
+                  tick={{ 
+                    fontSize: 12, 
+                    fill: 'hsl(var(--muted-foreground))',
+                    fontWeight: 500
+                  }}
                   tickLine={false}
                   axisLine={false}
-                  width={20}
+                  width={30}
                 />
                 <Tooltip 
                   contentStyle={{
                     backgroundColor: 'hsl(var(--background))',
                     borderColor: 'hsl(var(--border))',
-                    borderRadius: '0.5rem',
+                    borderRadius: '0.75rem',
                     fontSize: '0.875rem',
-                    boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)'
+                    boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)',
+                    border: '1px solid hsl(var(--border))',
+                    backdropFilter: 'blur(8px)',
+                    WebkitBackdropFilter: 'blur(8px)'
                   }}
-                  labelStyle={{ fontWeight: 600, marginBottom: 4 }}
-                  formatter={(value: number) => [`${value} contributions`, 'Contributions']}
+                  labelStyle={{ 
+                    fontWeight: 600, 
+                    marginBottom: 4,
+                    color: 'hsl(var(--foreground))'
+                  }}
+                  formatter={(value: number) => [
+                    <span key="value" className="font-semibold text-violet-600 dark:text-violet-400">
+                      {value} contributions
+                    </span>,
+                    <span key="label" className="text-muted-foreground">Contributions</span>
+                  ]}
+                  cursor={{ 
+                    fill: 'rgba(139, 92, 246, 0.1)',
+                    radius: 4
+                  }}
                 />
                 <Bar 
                   dataKey="contributions" 
-                  fill="hsl(var(--primary))" 
-                  radius={[4, 4, 0, 0]}
-                  animationDuration={1000}
+                  fill="url(#barGradient)"
+                  radius={[6, 6, 0, 0]}
+                  animationDuration={1200}
+                  animationEasing="ease-out"
+                  className="hover:fill-[url(#barGradientHover)] transition-all duration-300"
                 />
               </BarChart>
             </ResponsiveContainer>

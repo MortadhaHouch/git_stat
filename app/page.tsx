@@ -1,5 +1,7 @@
 import { Metadata } from 'next';
 import SearchBox from "@/components/main/SearchBox";
+import { HeroSection } from '@/components/main/HeroSection';
+import { SparklesPreview } from '@/components/main/Sparkles';
 
 export const metadata: Metadata = {
   title: 'GitStat | Track GitHub User Statistics',
@@ -48,8 +50,19 @@ export const metadata: Metadata = {
 
 export default function Home() {
   return (
-    <main className="w-full min-h-screen">
-      <SearchBox/>
+    <main className="w-full mx-auto">
+      <HeroSection className="min-h-screen flex flex-col items-center justify-center">
+        <SparklesPreview
+          title="GitStat"
+        >
+          <p className="text-lg text-center text-gray-600 dark:text-gray-400">
+            A Professional View of GitHub Profiles — All in One Place
+          </p>
+        </SparklesPreview>
+      </HeroSection>
+      <section className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-background to-muted/20">
+        <SearchBox/>
+      </section>
     </main>
   );
 }

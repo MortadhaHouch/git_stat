@@ -327,7 +327,7 @@ useEffect(() => {
               </CollapsibleTrigger>
             </div>
             
-            <CollapsibleContent className="w-full">
+            <CollapsibleContent className="w-full max-w-7xl my-4 border shadow-md bg-card rounded-md p-4">
               <ReadmePreview 
                 content={readme}
                 isLoading={isReadmeLoading}

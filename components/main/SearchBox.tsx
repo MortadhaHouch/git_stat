@@ -1,160 +1,130 @@
-'use client'
+'use client';
+
 import { motion } from "framer-motion";
-import { Meteors } from "../ui/meteors";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverAnchor,
+} from "../ui/popover";
 import { Search } from "lucide-react";
-import { GitHubUserPreview } from "@/utils/types";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem } from "../ui/dropdown-menu";
-import Link from "next/link";
 import Image from "next/image";
-import fetchUsers, { FetchOptions } from "@/utils/fetchData";
+import Link from "next/link";
+import { useCallback, useRef, useState } from "react";
 
-interface GitHubSearchResponse {
-    items: GitHubUserPreview[];
-    total_count: number;
-    incomplete_results: boolean;
-}
+import fetchUsers, { FetchOptions } from "@/utils/fetchData";
+import { GitHubSearchResponse, GitHubUserPreview } from "@/utils/types";
 
 export default function SearchBox() {
-    const [search, setSearch] = useState('');
-    const [previews, setPreviews] = useState<GitHubUserPreview[]>([]);
-    const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-    const controllerRef = useRef<AbortController | null>(null);
+  const [search, setSearch] = useState("");
+  const [previews, setPreviews] = useState<GitHubUserPreview[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
-    // Cleanup function to clear timeouts and abort pending requests
-    const cleanup = useCallback(() => {
-        if (timeoutRef.current) {
-            clearTimeout(timeoutRef.current);
-            timeoutRef.current = null;
-        }
-        if (controllerRef.current) {
-            controllerRef.current.abort();
-            controllerRef.current = null;
-        }
-    }, []);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const controllerRef = useRef<AbortController | null>(null);
 
-    // Fetch users with debounce and proper cleanup
-    const searchUsers = useCallback(async (query: string) => {
-        if (!query.trim()) {
-            setPreviews([]);
-            setError(null);
-            return;
-        }
+  const searchUsers = useCallback(async (query: string) => {
+    if (!query.trim()) {
+      setPreviews([]);
+      return;
+    }
 
-        cleanup();
-        setIsLoading(true);
-        setError(null);
+    controllerRef.current?.abort();
+    setIsLoading(true);
 
-        // Create new AbortController for this request
-        controllerRef.current = new AbortController();
-        
-        try {
-            const options: FetchOptions = {
-                signal: controllerRef.current.signal,
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/vnd.github.v3+json'
-                }
-            };
-            
-            const response = await fetchUsers<GitHubSearchResponse>(
-                `https://api.github.com/search/users?q=${encodeURIComponent(query)}+in:login&per_page=5`,
-                options
-            );
-            
-            if (response && response.items) {
-                setPreviews(response.items);
-            } else {
-                setPreviews([]);
-            }
-        } catch (err) {
-            const error = err as Error;
-            if (error.name !== 'AbortError') {
-                console.error('Search failed:', error);
-                setError('Failed to fetch users. Please try again.');
-                setPreviews([]);
-            }
-        } finally {
-            if (controllerRef.current) {
-                controllerRef.current = null;
-            }
-            setIsLoading(false);
-        }
-    }, [cleanup]);
+    controllerRef.current = new AbortController();
 
-    // Debounce the search
-    const handleSearchChange = useCallback((value: string) => {
-        setSearch(value);
-        
-        if (timeoutRef.current) {
-            clearTimeout(timeoutRef.current);
-        }
+    try {
+      const options: FetchOptions = {
+        signal: controllerRef.current.signal,
+        headers: { Accept: "application/vnd.github+json" },
+      };
 
-        if (!value.trim()) {
-            setPreviews([]);
-            setError(null);
-            return;
-        }
+      const res = await fetchUsers<GitHubSearchResponse>(
+        `https://api.github.com/search/users?q=${encodeURIComponent(
+          query
+        )}+in:login&per_page=5`,
+        options
+      );
 
-        timeoutRef.current = setTimeout(() => {
-            searchUsers(value);
-        }, 300); // 300ms debounce time
-    }, [searchUsers]);
+      setPreviews(res?.items ?? []);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
-    // Cleanup on unmount
-    useEffect(() => {
-        return () => {
-            cleanup();
-        };
-    }, [cleanup]);
+  const handleChange = (value: string) => {
+    setSearch(value);
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+
+    timeoutRef.current = setTimeout(() => {
+      searchUsers(value);
+    }, 300);
+  };
+
+  const open = search.length > 0 && (isLoading || previews.length > 0);
+
   return (
-    <motion.section className="w-full min-h-screen flex items-center justify-center">
-        <div className="flex max-w-md items-center gap-2">
-            <Input 
-                className="w-full" 
-                value={search} 
-                onChange={(e) => {
-                    handleSearchChange(e.target.value)
-                }}
-            />
-            <DropdownMenu open={search.length > 0}>
-                <DropdownMenuContent>
-                    {
-                        previews.map((p,idx)=>{
-                            return (
-                                <DropdownMenuItem key={idx}>
-                                    <Link 
-                                        href={p.avatar_url}
-                                        className="grid"
-                                    >
-                                        <Image 
-                                            width={100} 
-                                            height={100} 
-                                            src={p.html_url}
-                                            alt=""
-                                            className="col-span-1 row-span-2"
-                                        />
-                                        <h2 className="col-span-2 row-span-1">{p.name}</h2>
-                                        <h3 className="col-span-2 row-span-1">{p.login}</h3>
-                                    </Link>
-                                </DropdownMenuItem>
-                            )
-                        })
-                    }
-                </DropdownMenuContent>
-            </DropdownMenu>
-            <Button
-                variant="outline"
-                className="flex items-center gap-2"
+    <motion.section 
+        className="w-full min-h-screen flex items-center justify-center"
+        initial={{ opacity: 0.5, y: 100 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        transition={{
+            delay: 0.3,
+            duration: 0.8,
+            ease: "easeInOut",
+        }}
+    >
+      <Popover open={open}>
+        <PopoverAnchor asChild>
+          <div className="relative w-full max-w-7xl flex flex-col items-center justify-center gap-2">
+            <h1 className="mt-8 bg-linear-to-br from-slate-300 to-slate-500 py-4 bg-clip-text text-center text-4xl font-medium tracking-tight text-transparent md:text-7xl">
+                Start searching for GitHub users
+            </h1>
+            <div className="flex items-center justify-center gap-2 w-full max-w-3xl">
+              <Input
+                value={search}
+                onChange={(e) => handleChange(e.target.value)}
+                placeholder="Search GitHub users..."
+              />
+              <Button variant="outline">
+                <Search size={16} />
+              </Button>
+            </div>
+          </div>
+        </PopoverAnchor>
+
+        <PopoverContent
+          align="start"
+          side="bottom"
+          className="w-[--radix-popover-trigger-width] p-1"
+        >
+          {isLoading && (
+            <div className="px-3 py-2 text-sm text-muted-foreground">
+              Loading...
+            </div>
+          )}
+
+          {previews.map((user) => (
+            <Link
+              key={user.id}
+              href={`/user/${user.login}`}
+              target="_blank"
+              className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-accent"
             >
-                <Search/><span>Seach</span>
-            </Button>
-            {/* <Meteors/> */}
-        </div>
+              <Image
+                src={user.avatar_url}
+                alt={user.login}
+                width={32}
+                height={32}
+                className="rounded-full"
+              />
+              <h2 className="text-sm font-semibold text-foreground">{user.login}</h2>
+            </Link>
+          ))}
+        </PopoverContent>
+      </Popover>
     </motion.section>
-  )
+  );
 }
